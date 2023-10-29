@@ -35,12 +35,28 @@ app.MapGet("/weather", () =>
 })
 .WithName("GetWeatherForecast")
 .WithOpenApi();
+var users = new List<ContainerUser>();
 
 app.MapGet("/", () => "Hello Azure Container App!");
+app.MapGet("/users", () => users);
+app.MapPost("/users", (ContainerUser user) =>
+{
+    // save user in memory inside a list
+    user.Id = Guid.NewGuid().ToString();
+    users.Add(user);
+    
+    return user;
+});
 
 app.Run();
 
 internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
 {
     public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+}
+
+public class ContainerUser
+{
+    public string Name { get; set; } = null!;
+    public string Id { get; set; }
 }
