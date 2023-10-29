@@ -4,3 +4,8 @@ obj
 *.exe
 *.dll
 /.vs
+ContainerTestApp/Properties/PublishProfiles/test-container.pubxml
+
+ContainerTestApp/Properties/PublishProfiles/test-container.pubxml.user
+
+ContainerTestApp/ContainerTestApp.csproj.user

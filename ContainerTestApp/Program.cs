@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -5,9 +7,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-var app = builder.Build();
+builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddCheck<StartupHealthCheck>("Startup", tags: new[] { "startup" })
+    .AddCheck<ReadyHealthCheck>("Ready", tags: new[] { "ready" });
 
 // Configure the HTTP request pipeline.
+var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -41,22 +47,23 @@ app.MapGet("/", () => "Hello Azure Container App!");
 app.MapGet("/users", () => users);
 app.MapPost("/users", (ContainerUser user) =>
 {
-    // save user in memory inside a list
     user.Id = Guid.NewGuid().ToString();
     users.Add(user);
     
     return user;
 });
+app.MapHealthChecks("/healthz/ready", new HealthCheckOptions
+{
+    Predicate = healthCheck => healthCheck.Tags.Contains("ready")
+});
+
+app.MapHealthChecks("/healthz/live", new HealthCheckOptions
+{
+    Predicate = _ => false
+});
+app.MapHealthChecks("/healthz/startup", new HealthCheckOptions
+{
+    Predicate = healthCheck => healthCheck.Tags.Contains("startup")
+});
 
 app.Run();
-
-internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
-
-public class ContainerUser
-{
-    public string Name { get; set; } = null!;
-    public string Id { get; set; }
-}
