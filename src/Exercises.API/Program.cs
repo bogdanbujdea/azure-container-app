@@ -9,9 +9,11 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks()
     .AddCheck<StartupHealthCheck>("Startup", tags: new[] { "startup" })
     .AddCheck<ReadyHealthCheck>("Ready", tags: new[] { "ready" });
+builder.Configuration.AddEnvironmentVariables();
+
 builder.Services.AddDbContext<UsersDbContext>(options =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("SQL_CONNECTION_STRING");
+    var connectionString = builder.Configuration["SQL_CONNECTION_STRING"];
     options.UseSqlServer(connectionString);
 });
 
