@@ -1,19 +1,21 @@
+using Exercises.Storage;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
-builder.Services.AddHealthChecks();
 builder.Services.AddHealthChecks()
     .AddCheck<StartupHealthCheck>("Startup", tags: new[] { "startup" })
     .AddCheck<ReadyHealthCheck>("Ready", tags: new[] { "ready" });
+builder.Services.AddDbContext<UsersDbContext>(options =>
+{
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+});
 
-// Configure the HTTP request pipeline.
 var app = builder.Build();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -28,21 +30,21 @@ var summaries = new[]
 };
 
 app.MapGet("/weather", () =>
-{
-    Console.WriteLine($"Retrieving weather");
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
-var users = new List<ContainerUser>();
+    {
+        Console.WriteLine($"Retrieving weather");
+        var forecast = Enumerable.Range(1, 5).Select(index =>
+                new WeatherForecast
+                (
+                    DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
+                    Random.Shared.Next(-20, 55),
+                    summaries[Random.Shared.Next(summaries.Length)]
+                ))
+            .ToArray();
+        return forecast;
+    })
+    .WithName("GetWeatherForecast")
+    .WithOpenApi();
+var users = new List<ApplicationUser>();
 
 app.MapGet("/", () =>
 {
@@ -54,12 +56,12 @@ app.MapGet("/users", () =>
     Console.WriteLine($"Retrieving users");
     return users;
 });
-app.MapPost("/users", (ContainerUser user) =>
+app.MapPost("/users", (ApplicationUser user) =>
 {
     Console.WriteLine($"Adding user");
-    user.Id = Guid.NewGuid().ToString();
+    user.Id = Guid.NewGuid();
     users.Add(user);
-    
+
     return user;
 });
 app.MapHealthChecks("/healthz/ready", new HealthCheckOptions
@@ -75,5 +77,15 @@ app.MapHealthChecks("/healthz/startup", new HealthCheckOptions
 {
     Predicate = healthCheck => healthCheck.Tags.Contains("startup")
 });
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<UsersDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
 
 app.Run();
+
+internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
+{
+    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+}
