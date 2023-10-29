@@ -29,6 +29,7 @@ var summaries = new[]
 
 app.MapGet("/weather", () =>
 {
+    Console.WriteLine($"Retrieving weather");
     var forecast = Enumerable.Range(1, 5).Select(index =>
         new WeatherForecast
         (
@@ -43,10 +44,19 @@ app.MapGet("/weather", () =>
 .WithOpenApi();
 var users = new List<ContainerUser>();
 
-app.MapGet("/", () => "Hello Azure Container App!");
-app.MapGet("/users", () => users);
+app.MapGet("/", () =>
+{
+    Console.WriteLine($"Calling root endpoint");
+    return "Hello Azure Container App!";
+});
+app.MapGet("/users", () =>
+{
+    Console.WriteLine($"Retrieving users");
+    return users;
+});
 app.MapPost("/users", (ContainerUser user) =>
 {
+    Console.WriteLine($"Adding user");
     user.Id = Guid.NewGuid().ToString();
     users.Add(user);
     
