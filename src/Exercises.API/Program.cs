@@ -11,7 +11,8 @@ builder.Services.AddHealthChecks()
     .AddCheck<ReadyHealthCheck>("Ready", tags: new[] { "ready" });
 builder.Services.AddDbContext<UsersDbContext>(options =>
 {
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+    var connectionString = builder.Configuration.GetConnectionString("SQL_CONNECTION_STRING");
+    options.UseSqlServer(connectionString);
 });
 
 var app = builder.Build();
