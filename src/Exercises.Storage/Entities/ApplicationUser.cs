@@ -1,4 +1,4 @@
-﻿namespace Exercises.Storage;
+﻿namespace Exercises.Storage.Entities;
 
 public class ApplicationUser
 {

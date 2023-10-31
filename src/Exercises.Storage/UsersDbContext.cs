@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Exercises.Storage.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace Exercises.Storage
 {

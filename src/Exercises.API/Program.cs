@@ -1,4 +1,7 @@
+using Exercises.API;
 using Exercises.Storage;
+using Exercises.Storage.Entities;
+using Gremlin.Net.Driver;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,6 +21,7 @@ builder.Services.AddDbContext<UsersDbContext>(options =>
 });
 
 var app = builder.Build();
+GremlinWrapper.Initialize(builder.Configuration);
 
 if (app.Environment.IsDevelopment())
 {
@@ -67,6 +71,74 @@ app.MapPost("/users", (ApplicationUser user) =>
 
     return user;
 });
+app.MapPost("/exerciseRoutine", async (string exerciseRoutineName, string? gymName) =>
+{
+    try
+    {
+        var exerciseRoutineResult = await GremlinWrapper.CreateEntity("exerciseRoutine", exerciseRoutineName);
+        if (gymName == null) return exerciseRoutineResult;
+        var gymResult = await GremlinWrapper.CreateEntity("gym", gymName);
+        await GremlinWrapper.LinkEntities(exerciseRoutineName, gymName, "availableAt");
+        return gymResult;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine(ex.ToString());
+        throw;
+    }
+
+});
+
+app.MapPost("/gyms", async (string gymName) =>
+{
+    try
+    {
+        var result = await GremlinWrapper.CreateEntity("gym", gymName);
+        return result;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine(ex.ToString());
+        throw;
+    }
+
+});
+app.MapPost("/exercise", async (string exerciseName, string? exerciseRoutineName, int? reps, string? gymName) =>
+{
+    Console.WriteLine($"Adding exercise");
+
+    try
+    {
+        var result = await GremlinWrapper.CreateEntity("exercise", exerciseName);
+
+        if (string.IsNullOrWhiteSpace(exerciseRoutineName) == false && reps != null)
+        {
+            if (await GremlinWrapper.VertexExistsAsync(exerciseRoutineName) == false)
+            {
+                await GremlinWrapper.CreateEntity("exerciseRoutine", exerciseRoutineName);
+            }
+            await GremlinWrapper.LinkEntities(exerciseRoutineName, exerciseName, "includes");
+            if (gymName != null)
+            {
+                if (await GremlinWrapper.VertexExistsAsync(gymName) == false)
+                {
+                    await GremlinWrapper.CreateEntity("gym", gymName);
+                }
+                await GremlinWrapper.LinkEntities(exerciseRoutineName, gymName, "availableAt");
+            }
+        }
+
+        return result;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine(ex.ToString());
+        throw;
+    }
+
+});
+
+
 app.MapHealthChecks("/healthz/ready", new HealthCheckOptions
 {
     Predicate = healthCheck => healthCheck.Tags.Contains("ready")
@@ -87,8 +159,3 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
-
-internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
