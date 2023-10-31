@@ -1,9 +1,12 @@
+using Auth0.AspNetCore.Authentication;
 using Exercises.API;
 using Exercises.Storage;
 using Exercises.Storage.Entities;
-using Gremlin.Net.Driver;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +23,51 @@ builder.Services.AddDbContext<UsersDbContext>(options =>
     options.UseSqlServer(connectionString);
 });
 
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, c =>
+    {
+        c.Authority = $"https://{builder.Configuration["Auth0:Domain"]}";
+        var validAudience = builder.Configuration["Auth0:Audience"];
+        var validIssuer = $"{builder.Configuration["Auth0:Domain"]}";
+        c.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+        {
+            ValidAudience = validAudience,
+            ValidIssuer = validIssuer
+        };
+    });
+builder.Services.AddAuthorization(o =>
+{
+    o.AddPolicy("exerciseapp:read-write", p => p.RequireAuthenticatedUser().
+        RequireClaim("scope", "exerciseapp:read-write"));
+});
+builder.Services.AddSwaggerGen(option =>
+{
+    option.SwaggerDoc("v1", new OpenApiInfo { Title = "Exercises API", Version = "v1" });
+    option.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        In = ParameterLocation.Header,
+        Description = "Please enter a valid token",
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        BearerFormat = "JWT",
+        Scheme = "Bearer"
+    });
+    option.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type=ReferenceType.SecurityScheme,
+                    Id="Bearer"
+                }
+            },
+            new string[]{}
+        }
+    });
+});
 var app = builder.Build();
 GremlinWrapper.Initialize(builder.Configuration);
 
@@ -30,6 +78,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 var summaries = new[]
 {
@@ -62,6 +113,14 @@ app.MapGet("/users", () =>
 {
     Console.WriteLine($"Retrieving users");
     return users;
+}).RequireAuthorization("exerciseapp:read-write");
+app.MapPost("/login", async (httpContext) =>
+{
+    var authenticationProperties = new LoginAuthenticationPropertiesBuilder()
+        .WithRedirectUri("/")
+        .Build();
+
+    await httpContext.ChallengeAsync(Auth0Constants.AuthenticationScheme, authenticationProperties);
 });
 app.MapPost("/users", (ApplicationUser user) =>
 {
