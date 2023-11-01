@@ -104,10 +104,12 @@ app.MapGet("/weather", () =>
     .WithOpenApi();
 var users = new List<ApplicationUser>();
 
-app.MapGet("/", () =>
+app.MapGet("/", () => new
 {
-    Console.WriteLine($"Calling root endpoint");
-    return "Hello Azure Container App!";
+    Authority = $"https://{builder.Configuration["Auth0:Domain"]}",
+    ValidAudience = builder.Configuration["Auth0:Audience"],
+    ValidIssuer = $"{builder.Configuration["Auth0:Domain"]}",
+    ValidIssuerUnderscore = $"{builder.Configuration["Auth0__Domain"]}"
 });
 app.MapGet("/users", () =>
 {
